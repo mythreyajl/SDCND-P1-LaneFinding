@@ -25,47 +25,49 @@ def process_image(image):
     # you should return the final output (image where lines are drawn on lanes)
 
     # Blur input image
-    blurred_img = P1_helpers.gaussian_blur(image, 5)
+    img = image
+    img = P1_helpers.gaussian_blur(img, 3)
 
     # Apply Binomial Threshold
-    # low = np.array([200, 200, 200])
-    # up = np.array([255, 255, 255])
-    # mask = cv2.inRange(blurred_img, low, up)
-    # masked_image = cv2.bitwise_and(blurred_img, blurred_img, mask=mask)
+    low = np.array([200, 200, 200])
+    up = np.array([255, 255, 255])
+    mask = cv2.inRange(img, low, up)
+    masked_image = cv2.bitwise_and(img, img, mask=mask)
 
     # Canny Detection
-    edges = P1_helpers.canny(blurred_img, 50, 150)
+    edges = P1_helpers.canny(masked_image, 50, 150)
 
     # Hough transform
-    lines = P1_helpers.hough_lines(edges, 1, np.pi/180, 75, 50, 25)
+    lines = P1_helpers.hough_lines(edges, 1, np.pi/180, 30, 40, 150)
 
     # Mask Image
     shape = lines.shape
     w = shape[1]
     h = shape[0]
-    bl = np.array([w * 0.00, h * 1.00])
-    tl = np.array([w * 0.35, h * 0.50])
-    tr = np.array([w * 0.55, h * 0.50])
-    br = np.array([w * 1.00, h * 1.00])
+    bl = np.array([w * 0.10, h * 1.00])
+    tl = np.array([w * 0.35, h * 0.6])
+    tr = np.array([w * 0.55, h * 0.6])
+    br = np.array([w * 0.95, h * 1.00])
     vertices = np.array([bl, tl, tr, br])
     cropped_image = P1_helpers.region_of_interest(lines, np.array([vertices], dtype=np.int32))
 
-    # Group information
-    # Reduce to ego-lanes
     # Overlay and return result
+    overlaid_image = P1_helpers.weighted_img(image, cropped_image, 0.5, 1.0)
 
     plt.subplot(231)
     plt.imshow(image)
     plt.subplot(232)
-    plt.imshow(blurred_img)
+    plt.imshow(img)
     plt.subplot(233)
     plt.imshow(edges)
     plt.subplot(234)
     plt.imshow(lines)
     plt.subplot(235)
     plt.imshow(cropped_image)
+    plt.subplot(236)
+    plt.imshow(overlaid_image)
 
-    return result
+    return overlaid_image
 
 
 if __name__ == '__main__':
