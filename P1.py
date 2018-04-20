@@ -29,7 +29,7 @@ def process_image(image):
     img = P1_helpers.gaussian_blur(img, 3)
 
     # Apply Binomial Threshold
-    low = np.array([200, 200, 200])
+    low = np.array([200, 200, 0])
     up = np.array([255, 255, 255])
     mask = cv2.inRange(img, low, up)
     masked_image = cv2.bitwise_and(img, img, mask=mask)
@@ -45,14 +45,14 @@ def process_image(image):
     w = shape[1]
     h = shape[0]
     bl = np.array([w * 0.10, h * 1.00])
-    tl = np.array([w * 0.35, h * 0.6])
-    tr = np.array([w * 0.55, h * 0.6])
+    tl = np.array([w * 0.35, h * 0.60])
+    tr = np.array([w * 0.55, h * 0.60])
     br = np.array([w * 0.95, h * 1.00])
     vertices = np.array([bl, tl, tr, br])
     cropped_image = P1_helpers.region_of_interest(lines, np.array([vertices], dtype=np.int32))
 
     # Overlay and return result
-    overlaid_image = P1_helpers.weighted_img(image, cropped_image, 0.5, 1.0)
+    overlaid_image = P1_helpers.weighted_img(cropped_image, image, 0.3, 2.0)
 
     plt.subplot(231)
     plt.imshow(image)
@@ -67,18 +67,13 @@ def process_image(image):
     plt.subplot(236)
     plt.imshow(overlaid_image)
 
-    return overlaid_image
+    result = overlaid_image
+
+    return result
 
 
 if __name__ == '__main__':
     os.listdir("test_images/")
-
-    #reading in an image
-    image = mpimg.imread('test_images/solidWhiteRight.jpg')
-
-    #printing out some stats and plotting
-    print('This image is:', type(image), 'with dimensions:', image.shape)
-    # plt.imshow(image)  # if you wanted to show a single color channel image called 'gray', for example, call as plt.imshow(gray, cmap='gray')
 
     white_output = 'test_videos_output/solidWhiteRight.mp4'
     ## To speed up the testing process you may want to try your pipeline on a shorter subclip of the video
@@ -89,5 +84,15 @@ if __name__ == '__main__':
     clip1 = VideoFileClip("test_videos/solidWhiteRight.mp4")
     white_clip = clip1.fl_image(process_image) #NOTE: this function expects color images!!
     white_clip.write_videofile(white_output, audio=False)
+
+    # yellow_output = 'test_videos_output/challenge.mp4'
+    # ## To speed up the testing process you may want to try your pipeline on a shorter subclip of the video
+    # ## To do so add .subclip(start_second,end_second) to the end of the line below
+    # ## Where start_second and end_second are integer values representing the start and end of the subclip
+    # ## You may also uncomment the following line for a subclip of the first 5 seconds
+    # ##clip2 = VideoFileClip('test_videos/solidYellowLeft.mp4').subclip(0,5)
+    # clip2 = VideoFileClip('test_videos/challenge.mp4')
+    # yellow_clip = clip2.fl_image(process_image)
+    # yellow_clip.write_videofile(yellow_output, audio=False)
 
     HTML("""<video width="960" height="540" controls> <source src="{0}"> </video>""".format(white_output))

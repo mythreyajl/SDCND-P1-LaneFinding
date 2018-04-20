@@ -1,5 +1,7 @@
 import numpy as np
 import cv2
+import sys
+
 
 def grayscale(img):
     """Applies the Grayscale transform
@@ -47,6 +49,35 @@ def region_of_interest(img, vertices):
     return masked_image
 
 
+def find_winning_bucket(buckets):
+    winner = []
+    weight = 0
+    for bucket in buckets:
+        if bucket['weight'] > weight:
+            weight = bucket['weight']
+            winner = bucket['lines']
+    if weight > 500:
+        return winner
+    else:
+        return []
+
+def average_line(lines):
+    slope = 0.0
+    intercept = 0.0
+    avg_length = 0.0
+    for line in lines:
+        slope += line['slope']*line['length']
+        intercept += line['b']*line['length']
+        avg_length += line['length']
+    slope /= avg_length
+    slope = np.tan(slope * np.pi/180)
+    intercept /= avg_length
+    return slope, intercept
+
+
+prev_state = {'left': [0.0, 0.0], 'right': [0.0, 0.0]}
+
+
 def draw_lines(img, lines, color=[255, 0, 0], thickness=2):
     """
     NOTE: this is the function you might want to use as a starting point once you want to
@@ -64,7 +95,58 @@ def draw_lines(img, lines, color=[255, 0, 0], thickness=2):
     If you want to make the lines semi-transparent, think about combining
     this function with the weighted_img() function below
     """
+    left_buckets = [{'lines': [], 'weight': 0.0} for _ in range(41)]   # Overlapping buckets with 10 degrees size
+    right_buckets = [{'lines': [], 'weight': 0.0} for _ in range(41)]  # Similar to left buckets
+
     for line in lines:
+        for x1, y1, x2, y2 in line:
+            line_stat = dict()
+            m = ((y2-y1)/(x2-x1))
+            slope = np.arctan2((y2 - y1), (x2 - x1))*180/np.pi
+            intercept = y1 - m * x1
+            length = np.sqrt((y2 - y1) * (y2-y1) + (x2 - x1) * (x2-x1))
+            line_stat['slope'] = slope
+            line_stat['b'] = intercept
+            line_stat['length'] = length
+            slope_ind = int(slope)
+            if 10 < slope_ind < 40:
+                for ind in range(slope_ind-5, slope_ind+5+1):
+                    right_buckets[ind-5+1]['lines'].append(line_stat)
+                    right_buckets[ind-5+1]['weight'] += line_stat['length'] + sys.float_info.epsilon
+
+            elif -40 < slope_ind < -10:
+                for ind in range(abs(slope_ind)-5, abs(slope_ind)+5+1):
+                    left_buckets[ind-5+1]['lines'].append(line_stat)
+                    left_buckets[ind-5+1]['weight'] += line_stat['length'] + sys.float_info.epsilon
+
+    left_lines = find_winning_bucket(left_buckets)
+    right_lines = find_winning_bucket(right_buckets)
+
+    h, w, c = img.shape
+    lines_that_count = []
+    if left_lines:
+        m_l, b_l = average_line(left_lines)
+        prev_state['left'] = [m_l, b_l]
+        m_l = 0.5 * m_l + 0.5 * prev_state['left'][0]
+        b_l = 0.5 * b_l + 0.5 * prev_state['left'][1]
+    else:
+        [m_l, b_l] = prev_state['left']
+
+    l_line = [int((h / 2 - b_l) / m_l), int(h / 2), int((h - b_l) / m_l), h]
+    lines_that_count.append([l_line])
+
+    if right_lines:
+        m_r, b_r = average_line(right_lines)
+        prev_state['right'] = [m_r, b_r]
+        m_r = 0.5 * m_r + 0.5 * prev_state['right'][0]
+        b_r = 0.5 * b_r + 0.5 * prev_state['right'][1]
+    else:
+        [m_r, b_r] = prev_state['right']
+
+    r_line = [int((h / 2 - b_r) / m_r), int(h / 2), int((h - b_r) / m_r), h]
+    lines_that_count.append([r_line])
+
+    for line in lines_that_count:
         for x1, y1, x2, y2 in line:
             cv2.line(img, (x1, y1), (x2, y2), color, thickness)
 
@@ -78,7 +160,7 @@ def hough_lines(img, rho, theta, threshold, min_line_len, max_line_gap):
     lines = cv2.HoughLinesP(img, rho, theta, threshold, np.array([]), minLineLength=min_line_len,
                             maxLineGap=max_line_gap)
     line_img = np.zeros((img.shape[0], img.shape[1], 3), dtype=np.uint8)
-    draw_lines(line_img, lines, [255, 0, 0], 5)
+    draw_lines(line_img, lines)
     return line_img
 
 
